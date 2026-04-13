@@ -1,12 +1,16 @@
-# Qwen3.5-397B-A17B-NVFP4 Aggregated TEP4 on GB200
-# Tensor Expert Parallel: TP4 + EP4, no dp-attention, symmetric memory enabled
+# Qwen3.5-397B-A17B-FP8 Aggregated DP4 on GB200
+# Data Parallel: DP4 with dp-attention, no expert parallel
 
-name: "nvfp4-agg-tep4"
+name: "qwen3.5-agg-dp4"
 
 model:
-  path: "qwen3.5-nvfp4"
+  path: "qwen3.5-fp8"
   container: "dev"
-  precision: "fp4"
+  precision: "fp8"
+
+# fixed hanging issue & perf regression
+dynamo:
+  hash: "ebbb698fef7543714ffe17d84abdd8d27bf70e01"
 
 resources:
   gpu_type: "gb200"
@@ -22,22 +26,22 @@ backend:
     NCCL_MNNVL_ENABLE: "1"
     NCCL_CUMEM_ENABLE: "1"
     SGLANG_DG_CACHE_DIR: "/configs/deepgemm-cache"
-    FLASHINFER_WORKSPACE_BASE: "/configs/flashinfer-gdc-cache"
+    FLASHINFER_WORKSPACE_BASE: "/configs/flashinfer-cache"
     SGLANG_DISABLE_TP_MEMORY_INBALANCE_CHECK: "1"
 
   sglang_config:
     aggregated:
-      served-model-name: "nvidia/Qwen3.5-397B-A17B-NVFP4"
+      served-model-name: "Qwen/Qwen3.5-397B-A17B-FP8"
       model-path: "/model/"
 
       attention-backend: "trtllm_mha"
-      quantization: "modelopt_fp4"
+      quantization: "fp8"
       kv-cache-dtype: "fp8_e4m3"
 
-      # TEP4: TP4 + EP4, standard TP attention (no dp-attention)
+      # DP4: DP4 with dp-attention, no expert parallel
       tensor-parallel-size: 4
-      expert-parallel-size: 4
-      moe-dense-tp-size: 1
+      data-parallel-size: 4
+      enable-dp-attention: true
 
       mamba-ssm-dtype: "bfloat16"
       moe-runner-backend: "flashinfer_trtllm"
@@ -45,11 +49,15 @@ backend:
       disable-radix-cache: true
       max-running-requests: 1024
       mem-fraction-static: 0.8
-      chunked-prefill-size: 16384
-      max-prefill-tokens: 16384
-      context-length: 2020
+      chunked-prefill-size: 98304
+      max-prefill-tokens: 98304
+      context-length: 2100
       cuda-graph-max-bs: 1024
-      # enable-symm-mem: true  # may improve perf in some scenarios, benchmark before enabling
+      mamba-scheduler-strategy: "no_buffer"
+
+      enable-nccl-nvls: true
+      enable-symm-mem: true
+      enable-fused-moe-sum-all-reduce: true
 
       decode-log-interval: 1
       stream-interval: 50
@@ -58,5 +66,5 @@ benchmark:
   type: "sa-bench"
   isl: 1000
   osl: 1000
-  concurrencies: "1x2x4x8x16x32x64x128x256x512x1024"
+  concurrencies: "1x2x4x8x16x32x64x128x256x512x768x1024x1280x1536x2048"
   req_rate: "inf"

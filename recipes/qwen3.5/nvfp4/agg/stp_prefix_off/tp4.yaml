@@ -1,5 +1,5 @@
 # Qwen3.5-397B-A17B-NVFP4 Aggregated TP4 on GB200
-# Pure tensor parallel, no expert parallel, symmetric memory enabled
+# Pure tensor parallel, no expert parallel
 
 name: "nvfp4-agg-tp4"
 
@@ -7,6 +7,10 @@ model:
   path: "qwen3.5-nvfp4"
   container: "dev"
   precision: "fp4"
+
+# fixed hanging issue & perf regression
+dynamo:
+  hash: "ebbb698fef7543714ffe17d84abdd8d27bf70e01"
 
 resources:
   gpu_type: "gb200"
@@ -22,7 +26,7 @@ backend:
     NCCL_MNNVL_ENABLE: "1"
     NCCL_CUMEM_ENABLE: "1"
     SGLANG_DG_CACHE_DIR: "/configs/deepgemm-cache"
-    FLASHINFER_WORKSPACE_BASE: "/configs/flashinfer-gdc-cache"
+    FLASHINFER_WORKSPACE_BASE: "/configs/flashinfer-cache"
 
   sglang_config:
     aggregated:
@@ -31,7 +35,6 @@ backend:
 
       attention-backend: "trtllm_mha"
       quantization: "modelopt_fp4"
-      kv-cache-dtype: "fp8_e4m3"
 
       tensor-parallel-size: 4
 
@@ -40,12 +43,12 @@ backend:
 
       disable-radix-cache: true
       max-running-requests: 1024
-      mem-fraction-static: 0.8
+      mem-fraction-static: 0.80
       chunked-prefill-size: 16384
       max-prefill-tokens: 16384
       context-length: 2020
       cuda-graph-max-bs: 1024
-      # enable-symm-mem: true  # may improve perf in some scenarios, benchmark before enabling
+      mamba-scheduler-strategy: "no_buffer"
 
       decode-log-interval: 1
       stream-interval: 50
@@ -54,5 +57,5 @@ benchmark:
   type: "sa-bench"
   isl: 1000
   osl: 1000
-  concurrencies: "1x2x4x8x16x32x64x128x256x512x1024"
+  concurrencies: "1x2x4x8x16x32x64x128x256x512x768x1024x1280x1536x2048x2560x3072"
   req_rate: "inf"

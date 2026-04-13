@@ -8,6 +8,10 @@ model:
   container: "dev"
   precision: "fp8"
 
+# fixed hanging issue & perf regression
+dynamo:
+  hash: "ebbb698fef7543714ffe17d84abdd8d27bf70e01"
+
 resources:
   gpu_type: "gb200"
   gpus_per_node: 4
@@ -40,12 +44,16 @@ backend:
 
       disable-radix-cache: true
       max-running-requests: 1024
-      mem-fraction-static: 0.8
-      chunked-prefill-size: 16384
-      max-prefill-tokens: 16384
-      context-length: 2020
+      mem-fraction-static: 0.85
+      chunked-prefill-size: 81920
+      max-prefill-tokens: 81920
+      context-length: 2100
       cuda-graph-max-bs: 1024
-      # enable-symm-mem: true  # may improve perf in some scenarios, benchmark before enabling
+      mamba-scheduler-strategy: "no_buffer"
+
+      enable-nccl-nvls: true
+      enable-symm-mem: true
+      enable-fused-moe-sum-all-reduce: true
 
       decode-log-interval: 1
       stream-interval: 50
@@ -54,5 +62,5 @@ benchmark:
   type: "sa-bench"
   isl: 1000
   osl: 1000
-  concurrencies: "1x2x4x8x16x32x64x128x256x512x1024"
+  concurrencies: "1x2x4x8x16x32x64x128x256x512x768x1024x1280x1536x2048"
   req_rate: "inf"
