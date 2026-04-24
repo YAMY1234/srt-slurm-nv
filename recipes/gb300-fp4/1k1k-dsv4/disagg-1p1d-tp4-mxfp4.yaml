@@ -1,0 +1,68 @@
+# DeepSeek-V4 disaggregated on GB300 (1P1D, TP=4, mxfp4) — dynamo frontend.
+# Adapted from @ishandhanani's recipe (originally labelled gb200). Local
+# substitutions for yangminl's lyris environment:
+#   - ``dsflash`` -> ``dsv4-pro`` (V4-Flash checkpoint not staged on lustre)
+#   - ``dspro`` container -> ``dsv4-grace-blackwell`` (GB300 aarch64 image;
+#     same sqsh works on both GB200 and GB300 per sglang cookbook)
+#   - ``nginx`` kept as-is; srtctl passes unknown container strings through
+#     to enroot, which pulls ``nginx:latest`` from Docker Hub at runtime.
+name: "dsv4-pro-gb300-disagg-1p1d-tp4-mxfp4-1k1k"
+
+slurm:
+  partition: gb300
+  time_limit: "4:00:00"
+
+dynamo:
+  hash: "9d3c913d300eb368cda28b3f98a23a5762621e0d"
+
+frontend:
+  type: dynamo
+  nginx_container: nginx
+
+model:
+  path: "dsv4-pro"
+  container: "dsv4-grace-blackwell"
+  precision: "mxfp4"
+
+resources:
+  gpu_type: "gb300"
+  prefill_nodes: 1
+  decode_nodes: 1
+  prefill_workers: 1
+  decode_workers: 1
+  gpus_per_node: 4
+
+backend:
+  type: sglang
+
+  prefill_environment:
+    SGLANG_JIT_DEEPGEMM_PRECOMPILE: "0"
+
+  decode_environment:
+    SGLANG_JIT_DEEPGEMM_PRECOMPILE: "0"
+
+  sglang_config:
+    prefill:
+      served-model-name: "deepseek-ai/DeepSeek-V4-Pro"
+      model-path: "/model/"
+      trust-remote-code: true
+      tensor-parallel-size: 4
+      disaggregation-mode: "prefill"
+      disaggregation-transfer-backend: nixl
+      moe-runner-backend: "flashinfer_mxfp4"
+      chunked-prefill-size: 4096
+      disable-flashinfer-autotune: true
+
+    decode:
+      served-model-name: "deepseek-ai/DeepSeek-V4-Pro"
+      model-path: "/model/"
+      trust-remote-code: true
+      tensor-parallel-size: 4
+      disaggregation-mode: "decode"
+      disaggregation-transfer-backend: nixl
+      moe-runner-backend: "flashinfer_mxfp4"
+      chunked-prefill-size: 4096
+      disable-flashinfer-autotune: true
+
+benchmark:
+  type: "manual"
