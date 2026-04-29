@@ -64,12 +64,46 @@ class ReportingStatusConfig:
 
 
 @dataclass(frozen=True)
+class LiveMetricsConfig:
+    """Live in-flight batch-metrics snapshot configuration.
+
+    When enabled, the orchestrator spawns a background thread during the
+    benchmark stage that periodically reparses prefill/decode worker logs
+    and refreshes ``<log_dir>/batch_metrics.png`` in place. This gives a
+    near-real-time view of running-req / queue-req / throughput / KV
+    occupancy across the cluster without any external monitoring stack.
+
+    The PNG is overwritten on every tick (no history snapshots), so it
+    can simply be ``rsync``-ed or watched in an image viewer that
+    auto-reloads on mtime changes.
+
+    Attributes:
+        enabled: Whether to refresh ``batch_metrics.png`` every tick during
+            the benchmark stage. Default ``False`` (no behaviour change for
+            existing recipes).
+        interval_seconds: Seconds between snapshots. Reparses are
+            incremental so this is cheap even for long benchmarks.
+        downsample: Same meaning as ``plot_batch_metrics.py --downsample`` —
+            keep every Nth datapoint when plotting (does not affect parse
+            cost). Use to compress very dense plots; ``1`` (default) keeps
+            everything.
+    """
+
+    enabled: bool = False
+    interval_seconds: int = 60
+    downsample: int = 1
+
+    Schema: ClassVar[type[Schema]] = Schema
+
+
+@dataclass(frozen=True)
 class ReportingConfig:
     """Reporting configuration for status updates, AI analysis, and log exports."""
 
     status: ReportingStatusConfig | None = None
     ai_analysis: "AIAnalysisConfig | None" = None
     s3: "S3Config | None" = None
+    live_metrics: LiveMetricsConfig | None = None
 
     Schema: ClassVar[type[Schema]] = Schema
 

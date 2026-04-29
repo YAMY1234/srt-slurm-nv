@@ -183,6 +183,11 @@ class BenchmarkStageMixin:
         logger.info("Command: %s", shlex.join(cmd))
         logger.info("Log: %s", log_file)
 
+        # Optional in-flight batch-metrics snapshotter: parses worker logs
+        # from this same filesystem every N seconds and overwrites
+        # logs/batch_metrics.png in place. No-op when not configured.
+        snapshotter = self._maybe_start_live_metrics_snapshotter(stop_event)
+
         proc = start_srun_process(
             command=cmd,
             nodelist=[self.runtime.nodes.head],
@@ -192,15 +197,64 @@ class BenchmarkStageMixin:
             env_to_set=env_to_set,
         )
 
-        # Wait for benchmark to complete
-        while proc.poll() is None:
-            if stop_event.is_set():
-                logger.info("Stop requested, terminating benchmark")
-                proc.terminate()
-                return 1
-            time.sleep(1)
+        try:
+            # Wait for benchmark to complete
+            while proc.poll() is None:
+                if stop_event.is_set():
+                    logger.info("Stop requested, terminating benchmark")
+                    proc.terminate()
+                    return 1
+                time.sleep(1)
 
-        return proc.returncode or 0
+            return proc.returncode or 0
+        finally:
+            if snapshotter is not None:
+                snapshotter.stop()
+
+    def _maybe_start_live_metrics_snapshotter(self, stop_event: threading.Event):
+        """Start a live batch-metrics snapshotter if enabled in cluster config.
+
+        Returns the running snapshotter (so the caller can ``stop()`` it)
+        or ``None`` if disabled / not configured. Failures to import
+        matplotlib or to start the thread are logged and never raised:
+        live metrics are best-effort visualisation, not a hard dependency.
+        """
+        try:
+            from srtctl.core.config import load_cluster_config
+        except ImportError:  # pragma: no cover - defensive
+            return None
+
+        try:
+            cluster_config = load_cluster_config()
+        except Exception as e:
+            logger.debug("Live metrics: failed to load cluster config: %s", e)
+            return None
+
+        live = (cluster_config or {}).get("reporting", {}).get("live_metrics") if cluster_config else None
+        if not live or not live.get("enabled"):
+            return None
+
+        try:
+            from srtctl.analysis.live_metrics import LiveMetricsSnapshotter
+        except ImportError as e:
+            logger.warning(
+                "Live metrics enabled in cluster config but matplotlib import failed: %s; "
+                "skipping snapshotter",
+                e,
+            )
+            return None
+
+        try:
+            snap = LiveMetricsSnapshotter(
+                log_dir=self.runtime.log_dir,
+                interval_seconds=int(live.get("interval_seconds", 60)),
+                downsample=int(live.get("downsample", 1)),
+            )
+            snap.start(stop_event)
+            return snap
+        except Exception as e:
+            logger.warning("Failed to start live metrics snapshotter: %s", e)
+            return None
 
     def _get_benchmark_profiling_env(self, runner: "BenchmarkRunner") -> dict[str, str]:
         """Get environment variables for the benchmark script."""
