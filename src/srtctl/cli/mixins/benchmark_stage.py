@@ -227,16 +227,22 @@ class BenchmarkStageMixin:
                 env["PROFILE_PREFILL_START_STEP"] = str(p.prefill.start_step)
             if p.prefill.stop_step is not None:
                 env["PROFILE_PREFILL_STOP_STEP"] = str(p.prefill.stop_step)
+            if p.prefill.by_stage:
+                env["PROFILE_PREFILL_BY_STAGE"] = "1"
         if p.decode:
             if p.decode.start_step is not None:
                 env["PROFILE_DECODE_START_STEP"] = str(p.decode.start_step)
             if p.decode.stop_step is not None:
                 env["PROFILE_DECODE_STOP_STEP"] = str(p.decode.stop_step)
+            if p.decode.by_stage:
+                env["PROFILE_DECODE_BY_STAGE"] = "1"
         if p.aggregated:
             if p.aggregated.start_step is not None:
                 env["PROFILE_AGG_START_STEP"] = str(p.aggregated.start_step)
             if p.aggregated.stop_step is not None:
                 env["PROFILE_AGG_STOP_STEP"] = str(p.aggregated.stop_step)
+            if p.aggregated.by_stage:
+                env["PROFILE_AGG_BY_STAGE"] = "1"
 
         # Torch profiler directory
         if p.is_torch:

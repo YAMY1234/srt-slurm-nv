@@ -11,6 +11,7 @@
 #   PROFILE_DECODE_IPS: Comma-separated list of decode worker IPs
 #   PROFILE_PREFILL_START_STEP / PROFILE_PREFILL_STOP_STEP: Step range for prefill
 #   PROFILE_DECODE_START_STEP / PROFILE_DECODE_STOP_STEP: Step range for decode
+#   PROFILE_{PREFILL,DECODE,AGG}_BY_STAGE: When 1, sglang captures prefill and decode forwards independently (sglang only)
 
 set -e
 

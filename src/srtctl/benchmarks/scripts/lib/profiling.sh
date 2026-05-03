@@ -49,6 +49,7 @@ profiling__start_profile_on_worker() {
     local output_dir="$4"
     local profile_type="$5"
     local worker_port="$6"
+    local by_stage="${7:-0}"
 
     local hostport
     hostport="$(profiling__normalize_endpoint "${endpoint}" "${worker_port}")"
@@ -65,10 +66,19 @@ profiling__start_profile_on_worker() {
     local activities
     activities="$(profiling__activities_json "${profile_type}")"
 
-    local payload
-    payload="{\"output_dir\": \"${output_dir}\", \"start_step\": ${start_step}, \"num_steps\": ${num_steps}, \"activities\": ${activities}}"
+    # When by_stage=1 we ask the SGLang scheduler to capture prefill and decode
+    # forwards independently (num_steps of EACH phase, two trace files emitted).
+    # The "profile_by_stage" key is only honored by the sglang /start_profile
+    # endpoint; dynamo's /engine/start_profile silently ignores unknown keys.
+    local by_stage_kv=""
+    if [[ "${by_stage}" == "1" || "${by_stage,,}" == "true" ]]; then
+        by_stage_kv=", \"profile_by_stage\": true"
+    fi
 
-    echo "Starting profiling on http://${hostport} (steps ${start_step}-${stop_step})"
+    local payload
+    payload="{\"output_dir\": \"${output_dir}\", \"start_step\": ${start_step}, \"num_steps\": ${num_steps}, \"activities\": ${activities}${by_stage_kv}}"
+
+    echo "Starting profiling on http://${hostport} (steps ${start_step}-${stop_step}, by_stage=${by_stage})"
     if [[ -z "${SRTCTL_FRONTEND_TYPE}" ]]; then
         echo "Error: SRTCTL_FRONTEND_TYPE is not set (expected 'dynamo' or 'sglang')" >&2
         return 1
@@ -141,6 +151,12 @@ profiling_init_from_env() {
     PROFILE_AGG_START_STEP="${PROFILE_AGG_START_STEP:-0}"
     PROFILE_AGG_STOP_STEP="${PROFILE_AGG_STOP_STEP:-50}"
 
+    # Per-phase profile_by_stage flag (sglang only). When "1", the worker captures
+    # num_steps prefill and num_steps decode forwards independently.
+    PROFILE_PREFILL_BY_STAGE="${PROFILE_PREFILL_BY_STAGE:-0}"
+    PROFILE_DECODE_BY_STAGE="${PROFILE_DECODE_BY_STAGE:-0}"
+    PROFILE_AGG_BY_STAGE="${PROFILE_AGG_BY_STAGE:-0}"
+
     profiling__started=0
 }
 
@@ -206,13 +222,13 @@ start_all_profiling() {
 
     local ep
     for ep in "${prefill_endpoints[@]}"; do
-        profiling__start_profile_on_worker "${ep}" "${PROFILE_PREFILL_START_STEP}" "${PROFILE_PREFILL_STOP_STEP}" "${prefill_output_dir}" "${PROFILE_TYPE}" "${WORKER_PORT}"
+        profiling__start_profile_on_worker "${ep}" "${PROFILE_PREFILL_START_STEP}" "${PROFILE_PREFILL_STOP_STEP}" "${prefill_output_dir}" "${PROFILE_TYPE}" "${WORKER_PORT}" "${PROFILE_PREFILL_BY_STAGE}"
     done
     for ep in "${decode_endpoints[@]}"; do
-        profiling__start_profile_on_worker "${ep}" "${PROFILE_DECODE_START_STEP}" "${PROFILE_DECODE_STOP_STEP}" "${decode_output_dir}" "${PROFILE_TYPE}" "${WORKER_PORT}"
+        profiling__start_profile_on_worker "${ep}" "${PROFILE_DECODE_START_STEP}" "${PROFILE_DECODE_STOP_STEP}" "${decode_output_dir}" "${PROFILE_TYPE}" "${WORKER_PORT}" "${PROFILE_DECODE_BY_STAGE}"
     done
     for ep in "${agg_endpoints[@]}"; do
-        profiling__start_profile_on_worker "${ep}" "${PROFILE_AGG_START_STEP}" "${PROFILE_AGG_STOP_STEP}" "${agg_output_dir}" "${PROFILE_TYPE}" "${WORKER_PORT}"
+        profiling__start_profile_on_worker "${ep}" "${PROFILE_AGG_START_STEP}" "${PROFILE_AGG_STOP_STEP}" "${agg_output_dir}" "${PROFILE_TYPE}" "${WORKER_PORT}" "${PROFILE_AGG_BY_STAGE}"
     done
 
     profiling__started=1

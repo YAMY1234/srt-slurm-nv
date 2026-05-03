@@ -47,6 +47,10 @@ ensure_sa_bench_deps
 #   PROFILE_PREFILL_START_STEP / PROFILE_PREFILL_STOP_STEP
 #   PROFILE_DECODE_START_STEP / PROFILE_DECODE_STOP_STEP
 #   PROFILE_AGG_START_STEP / PROFILE_AGG_STOP_STEP
+#
+# Stage-separated profiling (sglang only):
+#   PROFILE_{PREFILL,DECODE,AGG}_BY_STAGE: When 1, sglang scheduler counts prefill
+#     and decode forwards independently and emits two trace files per phase
 
 ENDPOINT=$1
 ISL=$2

@@ -645,6 +645,14 @@ class ProfilingPhaseConfig:
 
     start_step: int | None = None  # Step to start profiling
     stop_step: int | None = None  # Step to stop profiling
+    # When True, profile prefill and decode independently inside the worker:
+    # the SGLang scheduler counts prefill/decode forwards separately and
+    # captures num_steps (= stop_step - start_step) of EACH phase, emitting
+    # two distinct trace files (prefix-EXTEND.* and prefix-DECODE.*).
+    # See sglang.srt.managers.scheduler_profiler_mixin._profile_batch_predicate.
+    # Only meaningful for sglang backend with type=torch (also forwarded for nsys
+    # but only sglang acts on the flag).
+    by_stage: bool = False
 
     Schema: ClassVar[builtins.type[Schema]] = Schema
 
@@ -725,6 +733,8 @@ class ProfilingConfig:
                 env[f"PROFILE_{phase_key}_START_STEP"] = str(phase_config.start_step)
             if phase_config.stop_step is not None:
                 env[f"PROFILE_{phase_key}_STOP_STEP"] = str(phase_config.stop_step)
+            if phase_config.by_stage:
+                env[f"PROFILE_{phase_key}_BY_STAGE"] = "1"
 
         if self.is_torch:
             env["SGLANG_TORCH_PROFILER_DIR"] = f"{profile_dir}/{mode}"
