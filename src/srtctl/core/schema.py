@@ -1280,10 +1280,37 @@ class ObservabilityConfig:
 
 
 @dataclass(frozen=True)
-class TelemetryConfig:
-    """DCGM power telemetry for benchmark measurement windows."""
+class LiveMetricsConfig:
+    """In-flight batch-metrics snapshotter (log-based, no scraper).
+
+    When enabled, the orchestrator spawns a daemon thread during the benchmark
+    stage that re-parses prefill/decode/agg worker logs every ``interval_seconds``
+    and atomically overwrites ``<log_dir>/batch_metrics.png``.
+
+    Lives entirely in :mod:`srtctl.analysis.live_metrics`; this dataclass only
+    defines the user-visible knobs. Setting the block in the recipe makes the
+    choice explicit per run; when the recipe leaves it unset, the cluster
+    config's ``telemetry.live_metrics`` (if any) is consulted instead.
+    """
 
     enabled: bool = False
+    interval_seconds: int = 60
+    downsample: int = 1
+
+    Schema: ClassVar[type[Schema]] = Schema
+
+
+@dataclass(frozen=True)
+class TelemetryConfig:
+    """DCGM power telemetry for benchmark measurement windows.
+
+    ``live_metrics`` is an independent, lightweight signal: it tails worker logs
+    in-process and writes ``batch_metrics.png`` during the benchmark. It is not
+    gated by ``enabled`` (which only governs DCGM power telemetry).
+    """
+
+    enabled: bool = False
+    live_metrics: LiveMetricsConfig | None = None
     dcgm_exporter: TelemetryExporterConfig | None = None
     # Milliseconds between collector cycles. Replaces the retired
     # ``default_frequency``, which despite its name was a period in seconds

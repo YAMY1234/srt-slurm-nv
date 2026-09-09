@@ -420,6 +420,19 @@ class BenchmarkStageMixin:
 
             host_sampler = try_start_host_sampler(self.runtime.log_dir, observability, stop_event)
 
+        # Optional in-flight batch-metrics snapshotter (log-based, no scraper).
+        # Driven by the recipe's ``telemetry.live_metrics`` block when set,
+        # otherwise by the cluster config's ``telemetry.live_metrics``. The
+        # ``isinstance`` guard keeps mocked configs (whose attributes are all
+        # truthy) from switching it on in tests.
+        snapshotter = None
+        telemetry_cfg = getattr(self.config, "telemetry", None)
+        live_cfg = getattr(telemetry_cfg, "live_metrics", None)
+        if live_cfg is None or isinstance(getattr(live_cfg, "enabled", None), bool):
+            from srtctl.analysis.live_metrics import try_start_snapshotter
+
+            snapshotter = try_start_snapshotter(self.runtime.log_dir, stop_event, recipe_config=live_cfg)
+
         bench_node = self._benchmark_node()
         proc = start_srun_process(
             command=cmd,
@@ -460,6 +473,8 @@ class BenchmarkStageMixin:
                 proc.wait()
                 self.benchmark_child_reaped = True
                 self.benchmark_child_allows_window_mutation = True
+            if snapshotter is not None:
+                snapshotter.stop()
             if host_sampler is not None:
                 host_sampler.stop()
 

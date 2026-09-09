@@ -235,6 +235,7 @@ DCGM power telemetry for benchmark measurement windows.
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `enabled` | bool | `False` |  |
+| `live_metrics` | [LiveMetricsConfig](#livemetricsconfig) \| None | `None` |  |
 | `dcgm_exporter` | [TelemetryExporterConfig](#telemetryexporterconfig) \| None | `None` |  |
 | `collect_interval_ms` | int | `1000` | Milliseconds between collector cycles. Replaces the retired ``default_frequency``, which despite its name was a period in seconds (1000ms == the old 1.0 default). |
 | `storage_subdir` | str | `'power'` |  |
@@ -367,6 +368,16 @@ Native Tachometer collection for an observability-enabled run.
 | `default_exporters` | bool | `True` |  |
 | `dcgm_exporter` | [TelemetryExporterConfig](#telemetryexporterconfig) \| None | `None` |  |
 | `node_exporter` | [TelemetryExporterConfig](#telemetryexporterconfig) \| None | `None` |  |
+
+### LiveMetricsConfig
+
+In-flight batch-metrics snapshotter (log-based, no scraper).
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `enabled` | bool | `False` |  |
+| `interval_seconds` | int | `60` |  |
+| `downsample` | int | `1` |  |
 
 ### TelemetryExporterConfig
 
