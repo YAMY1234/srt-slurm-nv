@@ -196,7 +196,7 @@ def render_batch_plot_matrix(
         return False
 
     n_rows = len(PLOT_ROWS)
-    cmap = plt.cm.get_cmap("tab20", max(len(pf_files), len(dc_files), 1))
+    cmap = plt.get_cmap("tab20", max(len(pf_files), len(dc_files), 1))  # cm.get_cmap was removed in matplotlib 3.9
     colors = [cmap(i) for i in range(cmap.N)]
 
     fig, axes = plt.subplots(n_rows, 2, figsize=(20, 3.0 * n_rows), squeeze=False)
